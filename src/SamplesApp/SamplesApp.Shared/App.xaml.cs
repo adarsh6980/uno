@@ -185,6 +185,11 @@ namespace SamplesApp
 #if WINAPPSDK && DEBUG
 			// this.DebugSettings.EnableFrameRateCounter = true;
 #endif
+			// UNO_SHOW_FPS=1 turns on the on-surface frame counter (benchmarking; on WASM logs live in the browser console).
+			if (Environment.GetEnvironmentVariable("UNO_SHOW_FPS") is "1" or "true")
+			{
+				DebugSettings.EnableFrameRateCounter = true;
+			}
 			AssertInitialWindowSize();
 
 
@@ -230,7 +235,7 @@ namespace SamplesApp
 			// This is done by the IcuDataInitializerGenerator for external projects
 			var icuType = Type.GetType("Microsoft.UI.Xaml.Documents.UnicodeText+ICU, Uno.UI");
 			var setMethod = icuType?.GetMethod("SetDataAssembly", BindingFlags.Public | BindingFlags.Static);
-			var assembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name is { } name && name.StartsWith("SamplesApp", StringComparison.Ordinal) && !name.Equals("SamplesApp.Skia", StringComparison.Ordinal));
+			var assembly = typeof(App).Assembly;
 			setMethod?.Invoke(null, [assembly]);
 		}
 #endif
@@ -503,7 +508,8 @@ namespace SamplesApp
 					builder.AddConsole();
 				}
 
-#if __APPLE_UIKIT__
+#if __APPLE_UIKIT__ && !__TVOS__
+				// Uno.Extensions.Logging.OSLog ships no tvOS asset, so tvOS keeps the console provider above.
 				builder.AddProvider(new Uno.Extensions.Logging.OSLogLoggerProvider());
 #endif
 
@@ -531,6 +537,9 @@ namespace SamplesApp
 
 				// Display Skia related information
 				builder.AddFilter("Uno.UI.Runtime.Skia", LogLevel.Debug);
+
+				// Surface the graphics-backend negotiation result (which renderer/context kind won)
+				builder.AddFilter("Uno.UI.Composition.Drawing", LogLevel.Information);
 				builder.AddFilter("Uno.WinUI.Runtime.Skia", LogLevel.Debug);
 				builder.AddFilter("Uno.UI.Skia", LogLevel.Debug);
 
