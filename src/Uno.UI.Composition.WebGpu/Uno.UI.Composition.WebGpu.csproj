@@ -10,7 +10,7 @@
 	<PropertyGroup>
 		<AssemblyName>Uno.UI.Composition.WebGpu</AssemblyName>
 		<RootNamespace>Uno.UI.Composition.WebGpu</RootNamespace>
-		<UnoRuntimeIdentifier>Skia</UnoRuntimeIdentifier>
+		<UnoRuntimeFlavor>Generic</UnoRuntimeFlavor>
 		<UseCommonOverridePackage>true</UseCommonOverridePackage>
 		<CommonOverridePackageId>Uno.UI</CommonOverridePackageId>
 		<Description>WebGPU drawing backend for Uno Platform (implements the neutral IRenderBackend seam).</Description>
