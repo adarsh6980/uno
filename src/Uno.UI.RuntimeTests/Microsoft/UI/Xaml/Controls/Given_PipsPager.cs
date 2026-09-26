@@ -136,26 +136,57 @@ public partial class Given_PipsPager
 
 	[TestMethod]
 	[RunsOnUIThread]
-	[Ignore("Fails even on Windows, very flaky on Uno.")] // Flaky #9080
+	[GitHubWorkItem("https://github.com/unoplatform/uno/issues/16513")]
 	public async Task When_MaxVisiblePips_GreaterThan_NumberOfPages_Horizontal()
 	{
+		// Exercise the all-pages-fit case: every pip stays in the viewport, even
+		// when the selected page changes. An opaque, known background makes the
+		// edge-pixel check independent of the host theme.
 		var SUT = new PipsPager
 		{
-			NumberOfPages = 7,
-			MaxVisiblePips = 5
+			NumberOfPages = 5,
+			MaxVisiblePips = 7,
+			RequestedTheme = ElementTheme.Light,
+			Background = new SolidColorBrush(Microsoft.UI.Colors.White),
 		};
 
-		await UITestHelper.Load(SUT);
+		try
+		{
+			await UITestHelper.Load(SUT);
 
-		var initialScreenshot = await UITestHelper.ScreenShot(SUT);
+			var repeater = SUT.FindFirstDescendant<ItemsRepeater>("PipsPagerItemsRepeater");
+			Assert.IsNotNull(repeater, "Inner ItemsRepeater not found");
+			var scrollViewer = SUT.FindFirstDescendant<ScrollViewer>("PipsPagerScrollViewer");
+			Assert.IsNotNull(scrollViewer, "Inner ScrollViewer not found");
 
-		var color = initialScreenshot.GetPixel(initialScreenshot.Width - 5, initialScreenshot.Height / 2);
+			await UITestHelper.WaitFor(
+				() => System.Linq.Enumerable.Range(0, 5).All(i => repeater.TryGetElement(i) is FrameworkElement pip && pip.ActualWidth > 0),
+				timeoutMS: 5000,
+				message: "Expected all five pips to be realized before the first screenshot");
+			var initialScreenshot = await UITestHelper.ScreenShot(SUT, opaque: true);
+			var color = initialScreenshot.GetPixel(initialScreenshot.Width - 5, initialScreenshot.Height / 2);
 
-		SUT.SelectedPageIndex = 3;
-		await TestServices.WindowHelper.WaitForIdle();
+			SUT.SelectedPageIndex = 3;
+			// All pages fit, so BringIntoView must not scroll. Wait for the actual
+			// viewport postcondition rather than assuming dispatcher idle settles a
+			// composition animation on native WinUI.
+			await UITestHelper.WaitFor(
+				() => SUT.SelectedPageIndex == 3 && scrollViewer.HorizontalOffset == 0 &&
+					System.Linq.Enumerable.Range(0, 5).All(i =>
+						repeater.TryGetElement(i) is FrameworkElement pip && pip.ActualWidth > 0 &&
+						pip.TransformToVisual(SUT).TransformPoint(new Windows.Foundation.Point(0, 0)).X >= 0 &&
+						pip.TransformToVisual(SUT).TransformPoint(new Windows.Foundation.Point(0, 0)).X < SUT.ActualWidth),
+				timeoutMS: 5000,
+				message: "Expected all pips to remain within the unscrolled pager after selecting page 3");
+			await TestServices.WindowHelper.WaitForIdle();
 
-		var scrolledScreenshot = await UITestHelper.ScreenShot(SUT);
-		ImageAssert.HasColorAt(scrolledScreenshot, scrolledScreenshot.Width - 5, scrolledScreenshot.Height / 2, color);
+			var scrolledScreenshot = await UITestHelper.ScreenShot(SUT, opaque: true);
+			ImageAssert.HasColorAt(scrolledScreenshot, scrolledScreenshot.Width - 5, scrolledScreenshot.Height / 2, color);
+		}
+		finally
+		{
+			TestServices.WindowHelper.WindowContent = null;
+		}
 	}
 
 	[TestMethod]
